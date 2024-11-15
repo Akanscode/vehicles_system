@@ -1,0 +1,89 @@
+@import url("https://fonts.cdnfonts.com/css/circular-std");
+@import url("https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap");
+  
+@import 'react-toastify/dist/ReactToastify.css';
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+@layer base {
+  h1 {
+    @apply text-[34px] md:text-[80px] leading-tight font-bold capitalize circular-std;
+  }
+
+  h2 {
+    @apply text-[32px] md:text-[60px] font-bold capitalize circular-std;
+  }
+
+  h3 {
+    @apply text-[24px] md:text-[40px] font-bold capitalize circular-std;
+  }
+
+  h4 {
+    @apply text-[20px] md:text-[24px] font-bold circular-std;
+  }
+
+  h5 {
+    @apply text-[16px] md:text-[20px] font-bold circular-std;
+  }
+
+  a {
+    /*@apply text-blue-600 underline;*/
+  }
+}
+
+ 
+
+.circular-std {
+  font-family: "circular std", sans-serif;
+}
+
+.space-mono {
+  font-family: "Space Mono", monospace;
+}
+
+/* Gradients */
+/*pink to blue*/
+.gradient-100 {
+  @apply bg-gradient-to-r from-[#F736C7] via-[#903ABB] to-[#003399];
+}
+
+/*blue top left to pink bottom right*/
+.gradient-200 {
+  @apply bg-gradient-to-r from-[#F736C7] via-[#903ABB] to-[#003399];
+}
+
+/*TYPOGRAPHY*/
+
+.p-sm {
+  @apply text-[12px] md:text-[14px] circular-std;
+}
+
+.p-md {
+  @apply text-[14px] md:text-[16px] circular-std;
+}
+
+.p-lg {
+  @apply text-[16px] md:text-[18px] circular-std;
+}
+
+.mono-p-xl {
+  @apply text-[20px] font-bold font-mono;
+}
+
+.mono-p-lg {
+  @apply text-[16px] md:text-[18px] font-bold font-mono;
+}
+.mono-p-md {
+  @apply text-[14px] md:text-[16px] font-bold font-mono;
+}
+.mono-p-sm {
+  @apply text-[14px] font-bold font-mono;
+}
+
+.label {
+  @apply text-[14px] md:text-[16px] font-bold circular-std;
+}
+
+.nav-link {
+  @apply px-3 py-2 flex items-center leading-snug text-[#667085] hover:text-[#F736C7] active:text-[#F736C7] hover:opacity-75 font-mono;
+}
