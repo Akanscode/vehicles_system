@@ -1,20 +1,21 @@
-// api/users/createUsers/route.jsx
 import { db } from "@/app/firebase/firebaseConfig";
 import { addDoc, collection, query, where, getDocs } from "firebase/firestore";
-import bcrypt from "bcryptjs"; // Ensure bcrypt is installed
+import bcrypt from "bcryptjs";
 import { userSchema } from "@/app/utils/userSchema";
 
 export async function POST(request) {
   try {
-    // Parse incoming request body and validate using userSchema
+    // Log Firestore initialization
+    console.log("Firestore Initialized:", db);
+
+    // Parse and validate the request body
     const body = await request.json();
-    console.log("Received body:", body); // Log the entire request body for debugging
+    console.log("Received body:", body);
 
     const parsedBody = userSchema.safeParse(body);
 
-    // Validate schema, return error if validation fails
     if (!parsedBody.success) {
-      console.log("Validation errors:", parsedBody.error.errors); // Log validation errors
+      console.log("Validation errors:", parsedBody.error.errors);
       return new Response(
         JSON.stringify({ error: parsedBody.error.errors }),
         { status: 400 }
@@ -23,9 +24,16 @@ export async function POST(request) {
 
     const { first_name, last_name, email, password, phone, vehicleType, role } = parsedBody.data;
 
-    // Check if email is already registered using a Firestore query
+    if (!["vehicleOwner", "admin"].includes(role)) {
+      return new Response(
+        JSON.stringify({ error: "Invalid role" }),
+        { status: 400 }
+      );
+    }
+
     const userQuery = query(collection(db, "users"), where("email", "==", email));
     const userSnapshot = await getDocs(userQuery);
+
     if (!userSnapshot.empty) {
       return new Response(
         JSON.stringify({ error: "Email already registered" }),
@@ -33,10 +41,8 @@ export async function POST(request) {
       );
     }
 
-    // Hash the password securely
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Prepare user data for Firestore
     const userData = {
       first_name,
       last_name,
@@ -47,15 +53,13 @@ export async function POST(request) {
       createdAt: new Date().toISOString(),
     };
 
-    // Conditionally include vehicleModel if role is 'vehicleOwner'
-    if (role === 'vehicleOwner') {
+    if (role === "vehicleOwner") {
       userData.vehicleType = vehicleType;
     }
 
-    // Add new user to Firestore
     const newUserRef = await addDoc(collection(db, "users"), userData);
+    console.log("New user added with ID:", newUserRef.id);
 
-    // Respond with user data (excluding password)
     return new Response(
       JSON.stringify({
         id: newUserRef.id,
@@ -64,13 +68,13 @@ export async function POST(request) {
         email,
         phone,
         role,
-        vehicleType: role === 'vehicleOwner' ? vehicleType : null,
+        vehicleType: role === "vehicleOwner" ? vehicleType : null,
       }),
       { status: 201 }
     );
   } catch (error) {
-    // Log the error for debugging
     console.error("Error in user registration:", error);
+
     return new Response(
       JSON.stringify({ error: "Failed to register user. Please try again." }),
       { status: 500 }

@@ -1,10 +1,7 @@
-// PendingTasksTable.jsx
 'use client';
 import { useState, useEffect } from "react";
-import { useAuth } from "../../../context/AuthContext";
 
 function PendingTasksTable() {
-  const { user } = useAuth(); // Destructure `user` from AuthContext
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showRescheduleModal, setShowRescheduleModal] = useState(false);
@@ -14,15 +11,13 @@ function PendingTasksTable() {
   const [selectedEmployeeId, setSelectedEmployeeId] = useState("");
 
   useEffect(() => {
-    if (user) {
-      fetchTasks(user.uid); // Pass user ID to fetch tasks
-    }
+    fetchTasks();
     fetchEmployees();
-  }, [user]);
+  }, []);
 
-  const fetchTasks = async (userId) => {
+  const fetchTasks = async () => {
     try {
-      const response = await fetch(`/api/bookings/fetchPendingTasks?userId=${userId}`);
+      const response = await fetch("/api/bookings/fetchAllBookings");
       const data = await response.json();
       setTasks(Array.isArray(data) ? data : []); // Ensure `tasks` is an array
       setLoading(false);
@@ -52,7 +47,7 @@ function PendingTasksTable() {
         body: JSON.stringify(selectedTask),
       });
       setShowRescheduleModal(false);
-      fetchTasks(user.uid); // Fetch tasks again after rescheduling
+      fetchTasks(); // Fetch tasks again after rescheduling
     }
   };
 
@@ -61,96 +56,73 @@ function PendingTasksTable() {
     if (selectedTask && selectedEmployeeId) {
       const taskId = selectedTask.id;
       const employeeId = selectedEmployeeId;
-      const taskDescription = selectedTask.description;
 
       const response = await fetch("/api/tasks/assign", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ taskId, employeeId, taskDescription }),
+        body: JSON.stringify({ taskId, employeeId }),
       });
 
       if (response.ok) {
-        setShowAssignModal(false);
-        fetchTasks(user.uid); // Fetch tasks again after assignment
+        fetchTasks();
       } else {
-        console.error("Failed to assign task");
+        console.error("Error assigning task");
       }
+      setShowAssignModal(false);
     }
   };
 
-  const openRescheduleModal = (task) => {
-    setSelectedTask(task);
-    setShowRescheduleModal(true);
-  };
-
-  const openAssignModal = (task) => {
-    setSelectedTask(task);
-    setShowAssignModal(true);
-  };
-
-  const renderTable = () => (
-    <div className="bg-gray-50 dark:bg-gray-900 p-3 sm:p-5">
-      <h4>Pending Tasks</h4>
-      <div className="mx-auto max-w-screen-xl px-4 lg:px-12">
-        <div className="bg-white dark:bg-gray-800 shadow-md sm:rounded-lg overflow-hidden">
-          <div className="flex flex-col md:flex-row items-center justify-between p-4">
-            <div className="w-full md:w-1/2">
-              <input
-                type="text"
-                placeholder="Search"
-                className="bg-gray-50 border text-sm rounded-lg w-full p-2 pl-10"
-              />
-            </div>
-            <button className="text-white bg-green-700 px-4 py-2 rounded-lg">
-              Filter
-            </button>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm text-left text-gray-500 dark:text-gray-400">
-              <thead className="text-[0.50rem] text-gray-700 uppercase bg-gray-50 dark:bg-gray-700">
-                <tr>
-                  <th className="py-2 px-4 border-b">Task ID</th>
-                  <th className="py-2 px-4 border-b">Description</th>
-                  <th className="py-2 px-4 border-b">Assigned Workshop</th>
-                  <th className="py-2 px-4 border-b">Due Date</th>
-                  <th className="py-2 px-4 border-b">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {tasks.map(task => (
-                  <tr key={task.id} className="border-b dark:border-gray-700 text-[0.50rem]">
-                    <td className="py-2 px-4 border-b ">{task.id}</td>
-                    <td className="py-2 px-4 border-b ">{task.serviceType}</td>
-                    <td className="py-2 px-4 border-b ">{task.assignedEmployee || 'Unassigned'}</td>
-                    <td className="py-2 px-4 border-b ">{task.date}</td>
-                    <td className="py-2 px-4 border-b flex space-x-2">
-                      <button
-                        onClick={() => openRescheduleModal(task)}
-                        className="text-blue-600 hover:underline"
-                      >
-                        Reschedule
-                      </button>
-                      <button
-                        onClick={() => openAssignModal(task)}
-                        className="text-green-600 hover:underline"
-                      >
-                        Assign Task
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+  if (loading) {
+    return <p>Loading tasks...</p>;
+  }
 
   return (
-    <div className="overflow-auto rounded-lg shadow-lg">
-      {loading ? <p>Loading...</p> : renderTable()}
-
+    <div className="tasks-table">
+      {tasks.length === 0 ? (
+        <p>No pending tasks found.</p>
+      ) : (
+        <table className="w-full border-collapse">
+          <thead>
+            <tr>
+              <th className="border">Task ID</th>
+              <th className="border">Service Type</th>
+              <th className="border">Vehicle Type</th>
+              <th className="border">Date</th>
+              <th className="border">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {tasks.map((task) => (
+              <tr key={task.id}>
+                <td className="border">{task.id}</td>
+                <td className="border">{task.serviceType}</td>
+                <td className="border">{task.vehicleType}</td>
+                <td className="border">{task.date}</td>
+                <td className="border">
+                  <button
+                    onClick={() => {
+                      setSelectedTask(task);
+                      setShowRescheduleModal(true);
+                    }}
+                    className="bg-blue-500 text-white p-2 rounded"
+                  >
+                    Reschedule
+                  </button>
+                  <button
+                    onClick={() => {
+                      setSelectedTask(task);
+                      setShowAssignModal(true);
+                    }}
+                    className="bg-green-500 text-white p-2 rounded ml-2"
+                  >
+                    Assign
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
       {/* Reschedule Modal */}
       {showRescheduleModal && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center">

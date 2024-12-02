@@ -1,15 +1,17 @@
-// app/dashboard/VehicleOwnerDashboard.js
 'use client';
 import React, { useState, useEffect } from "react";
-import { auth } from "@/app/firebase/firebaseConfig";
+import { auth, db } from "@/app/firebase/firebaseConfig";
+import { doc, getDoc } from "firebase/firestore";
 import BookingFormModal from "./components/BookingFormModal";
 import PendingTasks from "./components/PendingTasks";
 
 const VehicleOwnerDashboard = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [userId, setUserId] = useState(null);
+  const [userData, setUserData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [authLoading, setAuthLoading] = useState(true);
 
-  // Set user ID on initial load
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((user) => {
       if (user) {
@@ -17,38 +19,73 @@ const VehicleOwnerDashboard = () => {
       } else {
         setUserId(null);
       }
+      setAuthLoading(false);
     });
 
     return () => unsubscribe();
   }, []);
 
-  // Function to open booking modal
-  const openBookingModal = () => setIsModalOpen(true);
+  useEffect(() => {
+    if (userId) {
+      const fetchUserData = async () => {
+        try {
+          const userDocRef = doc(db, 'users', userId);
+          const userDocSnapshot = await getDoc(userDocRef);
 
-  // Function to close booking modal
+          if (userDocSnapshot.exists()) {
+            setUserData(userDocSnapshot.data());
+          } else {
+            console.log('No user document found');
+          }
+        } catch (error) {
+          console.error('Error fetching user data:', error);
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      fetchUserData();
+    } else {
+      setLoading(false);
+    }
+  }, [userId]);
+
+  useEffect(() => {
+    document.title = "Vehicle Owner Dashboard | MyApp";
+  }, []);
+
+  const openBookingModal = () => setIsModalOpen(true);
   const closeBookingModal = () => setIsModalOpen(false);
 
+  // Show loading message while data is being fetched
+  if (authLoading || loading) {
+    return <p>Loading...</p>;
+  }
+
   return (
-    <div>
+    <div className="p-6">
       <h2 className="text-xl font-semibold mb-4">Vehicle Owner Dashboard</h2>
 
-      {/* Button to open the booking form modal */}
+      {userData && (
+        <div className="mb-6">
+          <p className="text-lg font-medium">Welcome, {userData.name}</p>
+          <p className="text-sm text-gray-600">Email: {userData.email}</p>
+        </div>
+      )}
+
       <button
         onClick={openBookingModal}
-        className="mb-4 px-5 py-2.5 text-sm font-medium text-white rounded-lg gradient-100 hover:gradient-200"
+        className="mb-4 px-5 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-blue-500 to-green-500 rounded-lg hover:from-blue-600 hover:to-green-600"
+        aria-label="Book a Service"
       >
         Book a Service
       </button>
 
-      {/* Render BookingFormModal only when isModalOpen is true */}
-      {isModalOpen && (
-        <BookingFormModal onClose={closeBookingModal} />
-      )}
+      {isModalOpen && <BookingFormModal onClose={closeBookingModal} refreshTasks={() => {}} />}
 
-      {/* Pending tasks section */}
       <div className="mt-6">
         <h3 className="text-lg font-semibold mb-2">Pending Tasks</h3>
-        <PendingTasks userId={userId} /> {/* Pass userId as prop */}
+        <PendingTasks userId={userId} />
       </div>
     </div>
   );

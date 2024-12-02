@@ -1,7 +1,7 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { getAuth } from 'firebase/auth'; // Import Firebase Auth
 import { showToast } from '@/app/components/toast';
-import { getAuth } from 'firebase/auth'; // Import Firebase Auth if not done globally
 
 const BookingFormModal = ({ onClose, refreshBookings }) => {
   const [serviceType, setServiceType] = useState('');
@@ -9,11 +9,19 @@ const BookingFormModal = ({ onClose, refreshBookings }) => {
   const [date, setDate] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [userId, setUserId] = useState(null); // Store userId
 
-  // Retrieve user ID from Firebase Auth
-  const auth = getAuth();
-  const currentUser = auth.currentUser;
-  const currentUserId = currentUser ? currentUser.uid : null;
+  useEffect(() => {
+    // Get the current user from Firebase Authentication
+    const auth = getAuth();
+    const user = auth.currentUser;
+
+    if (user) {
+      setUserId(user.uid); // Set the userId if user is authenticated
+    } else {
+      setUserId('guest'); // Set userId to 'guest' if no user is logged in
+    }
+  }, []);
 
   const handleBookingSubmit = async (e) => {
     e.preventDefault();
@@ -21,11 +29,12 @@ const BookingFormModal = ({ onClose, refreshBookings }) => {
     setError(null);
 
     try {
+      // Send booking data to backend
       const response = await fetch('/api/bookings/createBooking', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          userId: currentUserId, // Pass the userId
+          userId, // Ensure userId is passed correctly
           serviceType,
           vehicleType,
           date,
@@ -34,17 +43,18 @@ const BookingFormModal = ({ onClose, refreshBookings }) => {
 
       if (!response.ok) {
         const errorData = await response.json();
-        console.error("Failed to create booking:", errorData);
         setError(`Failed to create booking: ${errorData.error}`);
         return;
       }
 
+      // Refresh bookings after success
       if (typeof refreshBookings === 'function') {
         await refreshBookings();
       }
 
+      // Show success toast
       showToast('Booking created successfully');
-      setTimeout(onClose, 1000);
+      setTimeout(onClose, 1000); // Close modal after 1 second
     } catch (error) {
       setError('Error creating booking');
       showToast('Error creating booking');

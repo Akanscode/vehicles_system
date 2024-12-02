@@ -1,0 +1,8 @@
+{
+  "projects": {
+    "default": "vehicle-system-2bb49",
+    "staging": "vehicle-system-2bb49"
+  },
+  "targets": {},
+  "etags": {}
+}

@@ -1,0 +1,45 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Allow users to read/write their own data
+    match /users/{userId} {
+      allow read, write: if true;
+    }
+
+    // Admin data protection
+    match /admin/{docId} {
+      allow read, write: if request.auth.token.role == 'admin';
+    }
+
+    // Booking management for authenticated users
+    match /bookings/{bookingId} {
+     allow read, write: if true;
+    }
+
+    // Allow admin users to manage employees
+    match /employees/{employeeId} {
+      allow read, write: if true;
+    }
+
+    
+
+    // Restrict service type write access to admins; allow public read
+    match /serviceTypes/{serviceTypeId} {
+      allow read: if true;
+      allow write: if request.auth != null && request.auth.token.role == 'admin';
+    }
+
+    // Restrict vehicle write access to owners or admins
+    match /vehicles/{vehicleId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null &&
+        (resource.data.ownerId == request.auth.uid || request.auth.token.role == 'admin');
+    }
+
+    // Allow authenticated users to manage their tasks
+    match /tasks/{taskId} {
+      allow read, write: if true;
+    }
+  }
+}
