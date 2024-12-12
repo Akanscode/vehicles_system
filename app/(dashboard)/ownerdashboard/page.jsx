@@ -1,76 +1,59 @@
 'use client';
 import React, { useState, useEffect } from "react";
-import { auth, db } from "@/app/firebase/firebaseConfig";
-import { doc, getDoc } from "firebase/firestore";
+import { getAuth, onAuthStateChanged } from "firebase/auth"; // Import required Firebase methods
+import { db } from "@/app/firebase/firebaseConfig";
+import { collection, query, where, getDocs } from "firebase/firestore";
 import BookingFormModal from "./components/BookingFormModal";
 import PendingTasks from "./components/PendingTasks";
 
 const VehicleOwnerDashboard = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [userId, setUserId] = useState(null);
   const [userData, setUserData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [authLoading, setAuthLoading] = useState(true);
+  const [uid, setUid] = useState(null); // Declare state for UID
 
   useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged((user) => {
-      if (user) {
-        setUserId(user.uid);
-      } else {
-        setUserId(null);
-      }
-      setAuthLoading(false);
-    });
+    const fetchUserData = async (user) => {
+      try {
+        const usersRef = collection(db, "users");
+        const q = query(usersRef, where("email", "==", user.email));
+        const querySnapshot = await getDocs(q);
 
-    return () => unsubscribe();
-  }, []);
-
-  useEffect(() => {
-    if (userId) {
-      const fetchUserData = async () => {
-        try {
-          const userDocRef = doc(db, 'users', userId);
-          const userDocSnapshot = await getDoc(userDocRef);
-
-          if (userDocSnapshot.exists()) {
-            setUserData(userDocSnapshot.data());
-          } else {
-            console.log('No user document found');
-          }
-        } catch (error) {
-          console.error('Error fetching user data:', error);
-        } finally {
-          setLoading(false);
+        if (!querySnapshot.empty) {
+          const userDoc = querySnapshot.docs[0];
+          setUserData({ id: userDoc.id, ...userDoc.data() });
+        } else {
+          console.error("User document not found.");
+          setUserData(null);
         }
-      };
+      } catch (error) {
+        console.error("Error fetching user document:", error);
+        setUserData(null);
+      }
+    };
 
-      fetchUserData();
-    } else {
-      setLoading(false);
-    }
-  }, [userId]);
-
-  useEffect(() => {
-    document.title = "Vehicle Owner Dashboard | MyApp";
+    const auth = getAuth();
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        setUid(user.uid); // Set the UID when user is authenticated
+        fetchUserData(user); // Fetch user data after setting UID
+      }
+    });
+    return () => unsubscribe(); // Cleanup on unmount
   }, []);
 
   const openBookingModal = () => setIsModalOpen(true);
   const closeBookingModal = () => setIsModalOpen(false);
 
-  // Show loading message while data is being fetched
-  if (authLoading || loading) {
-    return <p>Loading...</p>;
-  }
-
   return (
     <div className="p-6">
       <h2 className="text-xl font-semibold mb-4">Vehicle Owner Dashboard</h2>
-
-      {userData && (
+      {userData ? (
         <div className="mb-6">
-          <p className="text-lg font-medium">Welcome, {userData.name}</p>
+          <p className="text-lg font-medium">Welcome, {userData.first_name}</p>
           <p className="text-sm text-gray-600">Email: {userData.email}</p>
         </div>
+      ) : (
+        <p className="text-sm text-gray-600">Loading user data...</p>
       )}
 
       <button
@@ -80,12 +63,15 @@ const VehicleOwnerDashboard = () => {
       >
         Book a Service
       </button>
-
-      {isModalOpen && <BookingFormModal onClose={closeBookingModal} refreshTasks={() => {}} />}
-
+      {isModalOpen && (
+        <BookingFormModal
+          onClose={closeBookingModal}
+          userDocId={userData?.id || ""}
+        />
+      )}
       <div className="mt-6">
         <h3 className="text-lg font-semibold mb-2">Pending Tasks</h3>
-        <PendingTasks userId={userId} />
+        {uid && <PendingTasks uid={uid} />} {/* Ensure uid is defined before passing */}
       </div>
     </div>
   );

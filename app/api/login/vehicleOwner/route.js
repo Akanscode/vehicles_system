@@ -1,10 +1,18 @@
+//api/login
 import { db } from '@/app/firebase/firebaseConfig';
 import { collection, query, where, getDocs } from 'firebase/firestore';
-import bcrypt from 'bcryptjs'; // Import bcrypt
+import bcrypt from 'bcryptjs'; // Import bcrypt for password hashing
 
 export async function POST(req) {
   try {
     const { email, password } = await req.json(); // Parse JSON body
+
+    if (!email || !password) {
+      return new Response(
+        JSON.stringify({ message: 'Email and password are required' }),
+        { status: 400 }
+      );
+    }
 
     // Query Firestore for vehicle owner user
     const q = query(
@@ -22,7 +30,7 @@ export async function POST(req) {
     }
 
     const ownerData = querySnapshot.docs[0].data();
-    const userId = querySnapshot.docs[0].id;  // Assuming user ID is in Firestore document ID
+    const userId = querySnapshot.docs[0].id;  // Firestore Document ID
 
     // Check if the hashed password matches
     const isPasswordValid = await bcrypt.compare(password, ownerData.password); // Use bcrypt to compare hashes
@@ -30,7 +38,7 @@ export async function POST(req) {
       return new Response(
         JSON.stringify({
           message: 'Vehicle owner login successful',
-          user: { ...ownerData, userId },  // Send user data with userId
+          user: { ...ownerData, userId },  // Send user data with userId (docId)
         }),
         { status: 200 }
       );

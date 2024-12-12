@@ -15,7 +15,7 @@ import { doc, getDoc } from "firebase/firestore"; // To fetch user data from Fir
 
 const DashboardSideBar = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [userName, setUserName] = useState('User');
+  const [userName, setUserName] = useState('');
   const [userEmail, setUserEmail] = useState('');
   const [userAvatar, setUserAvatar] = useState(avatar); // Default avatar image
 
@@ -33,7 +33,7 @@ const DashboardSideBar = () => {
       if (user) {
         // Get user details from Firebase Authentication
         setUserEmail(user.email || ''); // Email from Firebase Authentication
-        setUserName(user.displayName || 'User'); // Name from Firebase Authentication
+        setUserName(user.first_name || ''); // Name from Firebase Authentication
 
         try {
           // Fetch additional user details from Firestore based on UID
@@ -43,7 +43,7 @@ const DashboardSideBar = () => {
           if (userDoc.exists()) {
             // Extract user first name from Firestore document
             const userData = userDoc.data();
-            setUserName(userData.firstName || user.displayName || 'User');
+            setUserName(userData.firstName || user.first_name || 'User');
             setUserAvatar(userData.avatarUrl || avatar); // If you have an avatar URL in Firestore
           } else {
             console.log("No user document found");

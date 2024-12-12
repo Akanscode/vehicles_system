@@ -1,140 +1,114 @@
 'use client';
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { auth, db } from '../firebase/firebaseConfig';
-import {
-  createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
-  onAuthStateChanged,
-  signOut,
+import { 
+  createUserWithEmailAndPassword, 
+  signInWithEmailAndPassword, 
+  onAuthStateChanged, 
+  signOut 
 } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 import { showToast } from '@/app/components/toast';
 
 const AuthContext = createContext();
+
 export const useAuth = () => useContext(AuthContext);
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [role, setRole] = useState(null); // Track user role
   const router = useRouter();
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       if (currentUser) {
-        const userId = currentUser.uid;
-
-        // Fetch role from Firestore
-        const userDoc = await getDoc(doc(db, 'users', userId));
-        if (userDoc.exists()) {
-          setRole(userDoc.data().role);
-        }
-
         setUser(currentUser);
       } else {
         setUser(null);
-        setRole(null);
       }
       setLoading(false);
     });
-
     return () => unsubscribe();
   }, []);
 
-  // Vehicle owner signup
-  const registerVehicleOwner = async (email, password, additionalData) => {
+  const registerUser = async (first_name, last_name, email, password, phone, vehicleType) => {
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      const userId = userCredential.user.uid;
+      const newUser = userCredential.user;
 
-      await setDoc(doc(db, 'users', userId), {
-        ...additionalData,
+      if (!newUser) throw new Error('User registration failed. No user returned.');
+
+      // Create user document in Firestore
+      await setDoc(doc(db, 'users', newUser.uid), {
+        uid: newUser.uid,
+        first_name,
+        last_name,
         email,
-        role: 'vehicleOwner',
-        createdAt: new Date().toISOString(),
+        phone,
+        vehicleType,
+        role: 'vehicleOwner',  // Default role set to 'customer'
       });
 
-      showToast('Registration successful');
-      return userCredential;
+      setUser(newUser);
+      showToast('User registered successfully', 'success');
+
+      // Redirect to login page after successful registration
+      router.push('/auth/login');
+
+      return newUser; // Return the new user for further actions (if any)
     } catch (error) {
-      console.error('Registration failed:', error);
-      showToast('Registration failed: ' + error.message);
-      throw new Error(error.message);
+      showToast('Registration failed: ' + error.message, 'error');
+      return null;
     }
   };
 
-  // Login logic (admin or vehicle owner)
-  // Login logic (admin or vehicle owner)
-const loginUser = async (email, password) => {
-  try {
-    // Check Firebase authentication for the user
-    const userCredential = await signInWithEmailAndPassword(auth, email, password);
-    const userId = userCredential.user.uid;
+  const loginUser = async (email, password) => {
+    try {
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const loggedInUser = userCredential.user;
 
-    // Fetch user details from Firestore
-    const userDoc = await getDoc(doc(db, 'users', userId));
-    if (!userDoc.exists()) {
-      showToast('User does not exist.');
-      throw new Error('User not found in Firestore.');
+      if (!loggedInUser) throw new Error('User login failed. No user returned.');
+
+      // Fetch user role from Firestore
+      const userDoc = await getDoc(doc(db, 'users', loggedInUser.uid));
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        
+        // Check if the role is defined
+        if (!userData.role) throw new Error('User role is undefined. Please contact support.');
+
+        // Set user data in context, including role
+        setUser({ ...loggedInUser, role: userData.role });
+        showToast('Login successful!', 'success');
+
+        // Redirect based on user role
+        if (userData.role === 'admin') {
+          router.push('/admin');
+        } else {
+          router.push('/ownerdashboard');
+        }
+      } else {
+        throw new Error('User data not found in Firestore.');
+      }
+    } catch (error) {
+      showToast('Login failed: ' + error.message, 'error');
     }
-
-    // Get the role from Firestore
-    const role = userDoc.data().role;
-
-    // If the user is an admin (verify role)
-    if (email === process.env.NEXT_PUBLIC_ADMIN_EMAIL && password === process.env.NEXT_PUBLIC_ADMIN_PASSWORD) {
-      setUser({ email }); // Set admin user with email only
-      setRole('admin'); // Admin role
-      showToast('Admin logged in successfully');
-      router.push('/admin'); // Redirect to admin dashboard
-      return;
-    }
-
-    // If it's a vehicle owner, proceed as usual
-    if (role === 'vehicleOwner') {
-      setUser(userCredential.user);
-      setRole('vehicleOwner');
-      showToast('Vehicle Owner logged in successfully');
-      router.push('/ownerdashboard'); // Redirect to vehicle owner dashboard
-    } else {
-      showToast('Unauthorized role.');
-      throw new Error('Role mismatch.');
-    }
-
-  } catch (error) {
-    console.error('Login failed:', error);
-    showToast('Login failed: ' + error.message);
-    throw error; // Re-throw error for further handling
-  }
-};
-
-  
-  
+  };
 
   const logoutUser = async () => {
     try {
       await signOut(auth);
-      setUser(null);
-      setRole(null);
-      showToast('Logged out successfully');
+      setUser(null); // Reset user context
+      showToast('Logged out successfully', 'success');
       router.push('/auth/login');
     } catch (error) {
-      console.error('Logout failed:', error);
-      showToast('Logout failed: ' + error.message);
+      showToast('Logout failed: ' + error.message, 'error');
     }
   };
 
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        role,
-        registerVehicleOwner,
-        loginUser,
-        logoutUser,
-      }}
-    >
+    <AuthContext.Provider value={{ user, registerUser, loginUser, logoutUser, loading }}>
       {!loading && children}
     </AuthContext.Provider>
   );

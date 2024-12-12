@@ -9,6 +9,7 @@ function PendingTasksTable() {
   const [selectedTask, setSelectedTask] = useState(null);
   const [employees, setEmployees] = useState([]);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState("");
+  const [newDate, setNewDate] = useState("");
 
   useEffect(() => {
     fetchTasks();
@@ -19,11 +20,15 @@ function PendingTasksTable() {
     try {
       const response = await fetch("/api/bookings/fetchAllBookings");
       const data = await response.json();
-      setTasks(Array.isArray(data) ? data : []); // Ensure `tasks` is an array
+      const updatedTasks = data.map((task) => ({
+        ...task,
+        isOverdue: new Date(task.date) < new Date(), // Mark overdue tasks
+      }));
+      setTasks(Array.isArray(updatedTasks) ? updatedTasks : []);
       setLoading(false);
     } catch (error) {
       console.error("Error fetching tasks:", error);
-      setTasks([]); // Set `tasks` to an empty array in case of error
+      setTasks([]);
       setLoading(false);
     }
   };
@@ -40,35 +45,79 @@ function PendingTasksTable() {
 
   const handleReschedule = async (e) => {
     e.preventDefault();
-    if (selectedTask) {
-      await fetch("/api/tasks", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(selectedTask),
-      });
-      setShowRescheduleModal(false);
-      fetchTasks(); // Fetch tasks again after rescheduling
+    if (selectedTask && newDate) {
+      const updatedTask = { ...selectedTask, date: newDate };
+      try {
+        await fetch("/api/bookings/reschedule", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(updatedTask),
+        });
+        setShowRescheduleModal(false);
+        fetchTasks();
+      } catch (error) {
+        console.error("Error rescheduling task:", error);
+      }
     }
   };
 
   const handleAssignTask = async (e) => {
     e.preventDefault();
-    if (selectedTask && selectedEmployeeId) {
-      const taskId = selectedTask.id;
-      const employeeId = selectedEmployeeId;
+    if (selectedTask) {
+      const updatedTask = { ...selectedTask };
 
-      const response = await fetch("/api/tasks/assign", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ taskId, employeeId }),
-      });
-
-      if (response.ok) {
-        fetchTasks();
+      // Check if the task already has an assigned employee
+      if (selectedTask.assignedEmployeeId) {
+        // If assigned, unassign by removing the employee
+        updatedTask.assignedEmployeeId = null;
+        updatedTask.assignedEmployeeName = null;
       } else {
-        console.error("Error assigning task");
+        // If unassigned, assign the selected employee
+        updatedTask.assignedEmployeeId = selectedEmployeeId;
+        const selectedEmployee = employees.find(
+          (employee) => employee.id === selectedEmployeeId
+        );
+        updatedTask.assignedEmployeeName = selectedEmployee
+          ? selectedEmployee.name
+          : null;
       }
-      setShowAssignModal(false);
+
+      try {
+        await fetch("/api/bookings/update", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(updatedTask),
+        });
+        setShowAssignModal(false);
+        fetchTasks();
+      } catch (error) {
+        console.error("Error updating task:", error);
+      }
+    }
+  };
+
+  const handleTaskCompletion = (task) => {
+    if (task.isOverdue && task.status !== "Completed") {
+      task.status = "Pending";
+    } else if (task.status === "Completed") {
+      moveToServiceHistory(task);
+    }
+    fetchTasks();
+  };
+
+  const moveToServiceHistory = async (task) => {
+    try {
+      await fetch("/api/serviceHistory", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(task),
+      });
+      await fetch(`/api/bookings/${task.id}`, {
+        method: "DELETE",
+      });
+      fetchTasks();
+    } catch (error) {
+      console.error("Error moving to service history:", error);
     }
   };
 
@@ -88,23 +137,28 @@ function PendingTasksTable() {
               <th className="border">Service Type</th>
               <th className="border">Vehicle Type</th>
               <th className="border">Date</th>
+              <th className="border">Assigned Employee</th>
+              <th className="border">Status</th>
               <th className="border">Actions</th>
             </tr>
           </thead>
           <tbody>
             {tasks.map((task) => (
-              <tr key={task.id}>
+              <tr key={task.id} className={task.isOverdue ? "bg-red-100" : ""}>
                 <td className="border">{task.id}</td>
                 <td className="border">{task.serviceType}</td>
                 <td className="border">{task.vehicleType}</td>
                 <td className="border">{task.date}</td>
-                <td className="border">
+                <td className="border">{task.assignedEmployeeName || "Unassigned"}</td>
+                <td className="border">{task.status}</td>
+                <td className="border flex space-x-2">
                   <button
                     onClick={() => {
                       setSelectedTask(task);
                       setShowRescheduleModal(true);
                     }}
-                    className="bg-blue-500 text-white p-2 rounded"
+                    className="bg-blue-500 text-white p-2 text-[0.56rem] rounded"
+                    disabled={task.isOverdue}
                   >
                     Reschedule
                   </button>
@@ -113,9 +167,15 @@ function PendingTasksTable() {
                       setSelectedTask(task);
                       setShowAssignModal(true);
                     }}
-                    className="bg-green-500 text-white p-2 rounded ml-2"
+                    className="bg-green-500 text-white p-2 text-[0.56rem] rounded ml-2"
                   >
-                    Assign
+                    {task.assignedEmployeeId ? "Unassign" : "Assign"}
+                  </button>
+                  <button
+                    onClick={() => handleTaskCompletion(task)}
+                    className="bg-gray-500 text-white p-2 text-[0.56rem] rounded ml-2"
+                  >
+                    Mark Complete
                   </button>
                 </td>
               </tr>
@@ -123,25 +183,56 @@ function PendingTasksTable() {
           </tbody>
         </table>
       )}
-      {/* Reschedule Modal */}
+
       {showRescheduleModal && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center">
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-96">
+          <div className="bg-white rounded-lg p-6 w-96">
             <h2 className="text-lg font-bold mb-4">Reschedule Task</h2>
             <form onSubmit={handleReschedule}>
-              {/* Reschedule form fields */}
+              <label className="block mb-2">New Date</label>
+              <input
+                type="date"
+                value={newDate}
+                onChange={(e) => setNewDate(e.target.value)}
+                className="border rounded w-full p-2"
+                required
+              />
+              <button
+                type="submit"
+                className="bg-blue-500 text-white p-2 rounded mt-4 w-full"
+              >
+                Reschedule Task
+              </button>
             </form>
           </div>
         </div>
       )}
 
-      {/* Assign Task Modal */}
       {showAssignModal && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center">
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-96">
+          <div className="bg-white rounded-lg p-6 w-96">
             <h2 className="text-lg font-bold mb-4">Assign Task</h2>
             <form onSubmit={handleAssignTask}>
-              {/* Assign form fields */}
+              <label className="block mb-2">Select Employee</label>
+              <select
+                value={selectedEmployeeId}
+                onChange={(e) => setSelectedEmployeeId(e.target.value)}
+                className="border rounded w-full p-2"
+                required
+              >
+                <option value="">Select</option>
+                {employees.map((employee) => (
+                  <option key={employee.id} value={employee.id}>
+                    {employee.name} - {employee.department}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="submit"
+                className="bg-blue-500 text-white p-2 rounded mt-4 w-full"
+              >
+                {selectedTask?.assignedEmployeeId ? "Unassign Task" : "Assign Task"}
+              </button>
             </form>
           </div>
         </div>

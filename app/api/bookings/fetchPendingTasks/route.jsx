@@ -1,24 +1,29 @@
-// api/bookings/fetchPendingTasks/route.jsx
-import { db } from "@/app/firebase/firebaseConfig";
-import { collection, getDocs, query, where } from "firebase/firestore";
+import { NextResponse } from 'next/server';
+import { db } from '@/app/firebase/firebaseConfig';
+import { collection, getDocs, query, where } from 'firebase/firestore';
 
-export async function GET(request) {
-  const { searchParams } = new URL(request.url);
-  const userId = searchParams.get("userId");
+export async function GET(req) {
+  const { searchParams } = new URL(req.url);
+  const uid = searchParams.get('uid');  // This should be the userId you're passing from the frontend
 
-  if (!userId) {
-    return new Response(JSON.stringify({ error: "User ID is required" }), { status: 400 });
+  if (!uid) {
+    return NextResponse.json({ error: 'Missing uid' }, { status: 400 });
   }
 
   try {
-    const tasksRef = collection(db, "bookings");
-    const q = query(tasksRef, where("userId", "==", userId), where("status", "==", "pending"));
-    const snapshot = await getDocs(q);
+    const bookingsRef = collection(db, 'bookings');
+    // Query using 'userId' instead of 'currentUserId'
+    const q = query(bookingsRef, where('uid', '==', uid)); // Use 'userId'
+    const querySnapshot = await getDocs(q);
 
-    const tasks = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-    return new Response(JSON.stringify(tasks), { status: 200 });
+    const bookings = querySnapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
+
+    return NextResponse.json(bookings, { status: 200 });
   } catch (error) {
-    console.error("Fetch tasks error:", error);
-    return new Response(JSON.stringify({ error: "Failed to fetch tasks" }), { status: 500 });
+    console.error('Error fetching bookings:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

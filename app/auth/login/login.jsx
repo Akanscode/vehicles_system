@@ -5,6 +5,9 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import Link from 'next/link';
 import { showToast } from '@/app/components/toast';
+import { useAuth } from '@/app/context/AuthContext';
+import { useRouter } from 'next/navigation';
+
 
 // Validation schema
 const loginSchema = z.object({
@@ -13,9 +16,11 @@ const loginSchema = z.object({
 });
 
 const LoginPage = () => {
-  const [role, setRole] = useState('vehicleOwner'); // Default role is 'vehicleOwner'
+  const { loginUser, userRole } = useAuth() || {}; // Ensure this hook returns expected values
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [role, setRole] = useState('vehicleOwner'); // Default role
+  const router = useRouter();
 
   const {
     register,
@@ -38,32 +43,19 @@ const LoginPage = () => {
         password === process.env.NEXT_PUBLIC_ADMIN_PASSWORD
       ) {
         showToast('Admin logged in successfully');
-        window.location.href = '/admin'; // Redirect to admin dashboard
-        return;
-      }
-
-      // If not admin, proceed with Vehicle Owner login API
-      const response = await fetch('/api/login/vehicleOwner', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
-      });
-
-      const responseData = await response.json();
-
-      if (response.ok) {
-        showToast('Vehicle Owner logged in successfully');
-        window.location.href = '/ownerdashboard'; // Redirect to vehicle owner dashboard
+        router.push('/admin'); // Redirect to admin dashboard
       } else {
-        setError(responseData.message || 'Invalid login credentials.');
+        await loginUser(email, password);
+        if (userRole === 'customer') {
+          router.push('/customer_dashboard'); // Redirect to customer dashboard
+        } else {
+          setError('User role is undefined. Please contact support.');
+        }
       }
-    } catch (error) {
-      setError('Error during login. Please try again.');
-      console.error('Error:', error);
+    } catch (err) {
+      setError(err.message || 'Login failed. Please check your credentials.');
     } finally {
-      setLoading(false);
+      setLoading(false); // Disable loading state
     }
   };
 
@@ -76,6 +68,7 @@ const LoginPage = () => {
               {role === 'admin' ? 'Admin Login' : 'Vehicle Owner Login'}
             </h1>
 
+            {/* Role Toggle Buttons */}
             <div className="flex justify-center mb-4">
               <button
                 onClick={() => setRole('admin')}
@@ -95,6 +88,7 @@ const LoginPage = () => {
               </button>
             </div>
 
+            {/* Login Form */}
             <form onSubmit={handleSubmit(handleLogin)} className="space-y-4">
               <div>
                 <label
@@ -132,7 +126,9 @@ const LoginPage = () => {
                     errors.password ? 'border-red-500' : 'border-gray-300'
                   } rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5`}
                 />
-                {errors.password && <p className="text-red-500 text-sm">{errors.password.message}</p>}
+                {errors.password && (
+                  <p className="text-red-500 text-sm">{errors.password.message}</p>
+                )}
               </div>
               <button
                 type="submit"

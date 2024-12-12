@@ -116,13 +116,13 @@ export default function EmployeeManagementTable() {
   );
 
   return (
-    <section className="bg-gray-50 dark:bg-gray-900 p-3 sm:p-5">
+    <section className="bg-gray-50  p-3 sm:p-5">
       <div className="mx-auto max-w-screen-xl px-4 lg:px-12">
         {error && <p className="text-red-600">{error}</p>} {/* Display error message if any */}
         {loading ? (
           <p>Loading...</p> // Display loading message while fetching
         ) : (
-          <div className="bg-white dark:bg-gray-800 shadow-md sm:rounded-lg overflow-hidden">
+          <div className="bg-white  shadow-md sm:rounded-lg overflow-hidden">
             {/* Search and Add Employee */}
             <div className="flex flex-col md:flex-row items-center justify-between p-4">
               <form className="flex w-full md:w-1/2" onSubmit={(e) => e.preventDefault()}>

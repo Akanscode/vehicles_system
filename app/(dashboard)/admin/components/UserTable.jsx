@@ -68,12 +68,12 @@ const UserTable = () => {
   if (loading) return <p>Loading...</p>;
 
   return (
-    <div className="bg-gray-50 dark:bg-gray-900 p-3 sm:p-4">
+    <div className="bg-gray-50  p-3 sm:p-4">
       <div className="mx-auto max-w-screen-xl px-4 lg:px-12">
         <h2 className="text-xl font-bold mb-4"> registered Vehicle Owners</h2>
         {error && <p className="text-red-500">{error}</p>}
         
-        <div className="bg-white dark:bg-gray-800 shadow-md sm:rounded-lg overflow-hidden">
+        <div className="bg-white  shadow-md sm:rounded-lg overflow-hidden">
           <div className="flex flex-col md:flex-row items-center justify-between p-4">
             <div className="w-full md:w-1/2">
               <input
@@ -89,8 +89,8 @@ const UserTable = () => {
             </button>
           </div>
 
-          <table className="w-full text-xs text-left  text-gray-500 dark:text-gray-400">
-            <thead className=" text-xs text-gray-700 capitalize bg-gray-50 dark:bg-gray-700">
+          <table className="w-full text-xs text-left  text-gray-500 ">
+            <thead className=" text-xs text-gray-700 capitalize bg-gray-50 ">
               <tr className='text-[0.50rem]'>
                 <th className="py-2 px-4 border-b">First </th>
                 <th className="py-2 px-4 border-b">Last </th>

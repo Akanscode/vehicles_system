@@ -2,67 +2,39 @@
 import { useEffect, useState, useCallback } from "react";
 import RescheduleModal from "./RescheduleModal";
 
-const PendingTasks = ({ userId, refreshTasks }) => {
+const PendingTasks = ({ uid }) => {
   const [tasks, setTasks] = useState([]);
   const [selectedTaskId, setSelectedTaskId] = useState(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  const [hasBookings, setHasBookings] = useState(null);
+  const [modalOpen, setModalOpen] = useState(false);
 
   const fetchPendingTasks = useCallback(async () => {
-    if (!userId) return;
-
-    setIsLoading(true); // Set loading to true before making the API call
-
+    if (!uid) return; // Prevent fetching if userDocId is not available
     try {
-      // Fetch pending tasks
-      const response = await fetch(`/api/bookings/fetchPendingTasks?userId=${userId}`);
+      const response = await fetch(`/api/bookings/fetchPendingTasks?uid=${uid}`);
       const data = await response.json();
-
-      console.log("Fetched data:", data); // Debugging log
-
-      if (Array.isArray(data) && data.length > 0) {
-        setTasks(data);
-        setHasBookings(true); // If tasks are found, set hasBookings to true
-      } else {
-        setTasks([]);
-        setHasBookings(false); // If no tasks, set hasBookings to false
-      }
+      setTasks(data);
     } catch (error) {
-      console.error("Fetch tasks error:", error);
-      setTasks([]); // In case of error, set tasks to an empty array
-      setHasBookings(false); // Set hasBookings to false if there's an error
-    } finally {
-      setIsLoading(false); // Stop loading after fetch (success or failure)
+      console.error("Error fetching pending tasks:", error);
     }
-  }, [userId]);
+  }, [uid]);
 
   useEffect(() => {
-    if (userId) fetchPendingTasks(); // Fetch tasks when userId changes
-  }, [fetchPendingTasks, userId]);
-
-  useEffect(() => {
-    if (refreshTasks) {
-      fetchPendingTasks(); // Fetch tasks after refresh action
-    }
-  }, [refreshTasks]);
+    fetchPendingTasks();
+  }, [fetchPendingTasks]);
 
   const handleReschedule = (taskId) => {
     setSelectedTaskId(taskId);
-    setIsModalOpen(true);
+    setModalOpen(true);
   };
 
-  const closeModal = () => {
-    setIsModalOpen(false);
+  const handleModalClose = () => {
+    setModalOpen(false);
     setSelectedTaskId(null);
   };
 
-  // Check if we are still loading
-  if (isLoading) return <p>Loading tasks...</p>; // Loading state message
-
   return (
     <div className="tasks grid gap-6 mx-auto sm:grid-cols-2 lg:grid-cols-4 lg:max-w-screen-lg">
-      {hasBookings === false ? (
+      {tasks.length === 0 ? (
         <p>No pending tasks found. Book a service to get started!</p>
       ) : (
         tasks.map((task) => (
@@ -84,8 +56,12 @@ const PendingTasks = ({ userId, refreshTasks }) => {
           </div>
         ))
       )}
-      {isModalOpen && (
-        <RescheduleModal bookingId={selectedTaskId} onClose={closeModal} refreshTasks={fetchPendingTasks} />
+      {modalOpen && (
+        <RescheduleModal
+          bookingId={selectedTaskId}
+          onClose={handleModalClose}
+          refreshTasks={fetchPendingTasks}
+        />
       )}
     </div>
   );
