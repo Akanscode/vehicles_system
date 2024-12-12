@@ -5,5 +5,10 @@
   },
   "dataconnect": {
     "source": "dataconnect"
+  },
+  "emulators": {
+    "dataconnect": {
+      "dataDir": "dataconnect/.dataconnect/pgliteData"
+    }
   }
 }
